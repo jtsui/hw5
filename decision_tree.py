@@ -74,6 +74,9 @@ class DecisionTree:
                 left_entropies), list(right_entropies), list(entropies_j))
             # bar.update(j)
         # bar.finish()
+        if not entropies:
+            self.is_spam = self.get_majority_label()
+            return
         self.feat, self.val, l_e, r_e, n_e = min(entropies, key=itemgetter(4))
 
         # print 'New entropy is %0.4f.' % n_e

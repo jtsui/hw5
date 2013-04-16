@@ -6,6 +6,7 @@ import scipy.io
 from operator import itemgetter
 import progressbar
 from collections import Counter
+import itertools
 
 
 def pbar(size):
@@ -20,7 +21,7 @@ def pbar(size):
 
 class DecisionTree:
 
-    def __init__(self, xtrain, ytrain, entropy=None, T=0.001, X=20):
+    def __init__(self, xtrain, ytrain, entropy=None, T=0.01, X=3):
         if entropy is None:
             spam = float(numpy.sum(ytrain)) / len(ytrain)
             if spam == 0 or spam == 1:
@@ -37,13 +38,13 @@ class DecisionTree:
         self.is_spam = None
 
         if len(xtrain) < X or numpy.sum(ytrain) == len(ytrain) or numpy.sum(ytrain) == 0:
-            print 'Number of points in node is %s. Terminating.' % len(xtrain)
+            # print 'Number of points in node is %s. Terminating.' % len(xtrain)
             self.is_spam = self.get_majority_label()
             return
 
         entropies = []
-        bar = pbar(xtrain.shape[1])
-        bar.start()
+        # bar = pbar(xtrain.shape[1])
+        # bar.start()
         for j in xrange(xtrain.shape[1]):
             xtrain_j_idx = xtrain[:, j].argsort()
             ytrain_j = ytrain[xtrain_j_idx]
@@ -71,14 +72,14 @@ class DecisionTree:
             entropies_j = (lenL/(lenL+lenR))*left_entropies+(lenR/(lenL+lenR))*right_entropies
             entropies += zip([j] * (len(buckets) - 1), [x for x, y in buckets][1:], list(
                 left_entropies), list(right_entropies), list(entropies_j))
-            bar.update(j)
-        bar.finish()
+            # bar.update(j)
+        # bar.finish()
         self.feat, self.val, l_e, r_e, n_e = min(entropies, key=itemgetter(4))
 
-        print 'New entropy is %0.4f.' % n_e
+        # print 'New entropy is %0.4f.' % n_e
 
         if (self.entropy - n_e) < T:
-            print 'Change in entropy is %0.4f. Terminating.' % (self.entropy - n_e)
+            # print 'Change in entropy is %0.4f. Terminating.' % (self.entropy - n_e)
             self.is_spam = self.get_majority_label()
             return
         lxtrain, lytrain, rxtrain, rytrain = self.splitData()
@@ -158,13 +159,17 @@ def main():
     ytrain = data['ytrain']
     xtest = data['Xtest']
     ytest = data['ytest']
-    tree = DecisionTree(xtrain, ytrain)
-    error = 0
-    for i in xrange(len(xtest)):
-        sample = xtest[i]
-        if tree.classify(sample) != ytest[i]:
-            error += 1
-    print 'Error rate %0.4f' % (float(error) / len(xtest))
+    t_values = [0.1, 0.01, 0.001, 0.0001]
+    x_values = [1, 3, 5, 10, 25, 50, 100]
+    print 'T\tX\tError'
+    for t, x in itertools.product(t_values, x_values):
+        tree = DecisionTree(xtrain, ytrain)
+        error = 0
+        for i in xrange(len(xtest)):
+            sample = xtest[i]
+            if tree.classify(sample) != ytest[i]:
+                error += 1
+        print '%s\t%s\t%0.4f' % (t, x, float(error) / len(xtest))
 
 
 if __name__ == "__main__":

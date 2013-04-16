@@ -37,7 +37,7 @@ class DecisionTree:
         self.right_child = None
         self.is_spam = None
 
-        if len(xtrain) < X or numpy.sum(ytrain) == len(ytrain) or numpy.sum(ytrain) == 0:
+        if len(xtrain) <= X or numpy.sum(ytrain) == len(ytrain) or numpy.sum(ytrain) == 0:
             # print 'Number of points in node is %s. Terminating.' % len(xtrain)
             self.is_spam = self.get_majority_label()
             return
@@ -86,8 +86,8 @@ class DecisionTree:
         if len(lxtrain) == 0 or len(rxtrain) == 0:
             import pdb
             pdb.set_trace()
-        self.left_child = DecisionTree(lxtrain, lytrain, l_e)
-        self.right_child = DecisionTree(rxtrain, rytrain, r_e)
+        self.left_child = DecisionTree(lxtrain, lytrain, l_e, T, X)
+        self.right_child = DecisionTree(rxtrain, rytrain, r_e, T, X)
 
     def error_free_log(self, num):
         err = numpy.seterr(divide='ignore', invalid='ignore')
@@ -163,7 +163,7 @@ def main():
     x_values = [1, 3, 5, 10, 25, 50, 100]
     print 'T\tX\tError'
     for t, x in itertools.product(t_values, x_values):
-        tree = DecisionTree(xtrain, ytrain)
+        tree = DecisionTree(xtrain, ytrain, None, t, x)
         error = 0
         for i in xrange(len(xtest)):
             sample = xtest[i]

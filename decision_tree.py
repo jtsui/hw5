@@ -5,6 +5,7 @@ import scipy
 import scipy.io
 from operator import itemgetter
 import progressbar
+from collections import Counter
 
 
 def pbar(size):
@@ -19,9 +20,9 @@ def pbar(size):
 
 class DecisionTree:
 
-    def __init__(self, xtrain, ytrain, entropy=None, T=0.01, X=10):
+    def __init__(self, xtrain, ytrain, entropy=None, T=0.001, X=20):
         if entropy is None:
-            spam = float(sum(ytrain)) / len(ytrain)
+            spam = float(numpy.sum(ytrain)) / len(ytrain)
             if spam == 0 or spam == 1:
                 entropy = 0
             else:
@@ -35,25 +36,63 @@ class DecisionTree:
         self.right_child = None
         self.is_spam = None
 
+        if len(xtrain) < X or numpy.sum(ytrain) == len(ytrain) or numpy.sum(ytrain) == 0:
+            print 'Number of points in node is %s. Terminating.' % len(xtrain)
+            self.is_spam = self.get_majority_label()
+            return
+
         entropies = []
-        bar = pbar(len(xtrain))
+        bar = pbar(xtrain.shape[1])
         bar.start()
-        for i in xrange(len(xtrain)):
-            for j in xrange(len(xtrain[i])):
-                left, right, e = self.get_entropy(j, xtrain[i][j])
-                entropies.append((j, xtrain[i][j], left, right, e))
-            bar.update(i)
+        for j in xrange(xtrain.shape[1]):
+            xtrain_j_idx = xtrain[:, j].argsort()
+            ytrain_j = ytrain[xtrain_j_idx]
+            xtrain_j = xtrain[:, j][xtrain_j_idx]
+            sumL, sumR, lenL, lenR = [], [], [], []
+            buckets = sorted(Counter(xtrain_j).items())
+            so_far = buckets[0][1]
+            for i in xrange(1, len(buckets)):
+                left = ytrain_j[:so_far]
+                right = ytrain_j[so_far:]
+                sumL.append(numpy.sum(left))
+                lenL.append(float(len(left)))
+                sumR.append(numpy.sum(right))
+                lenR.append(float(len(right)))
+                so_far += buckets[i][1]
+
+            sumL = numpy.array(sumL)
+            sumR = numpy.array(sumR)
+            lenL = numpy.array(lenL)
+            lenR = numpy.array(lenR)
+            probL = sumL / lenL
+            probR = sumR / lenR
+            left_entropies = -(probL * self.error_free_log(probL) + (1-probL) * self.error_free_log(1-probL))
+            right_entropies = -(probR * self.error_free_log(probR) + (1-probR) * self.error_free_log(1-probR))
+            entropies_j = (lenL/(lenL+lenR))*left_entropies+(lenR/(lenL+lenR))*right_entropies
+            entropies += zip([j] * (len(buckets) - 1), [x for x, y in buckets][1:], list(
+                left_entropies), list(right_entropies), list(entropies_j))
+            bar.update(j)
         bar.finish()
         self.feat, self.val, l_e, r_e, n_e = min(entropies, key=itemgetter(4))
 
-        print n_e
+        print 'New entropy is %0.4f.' % n_e
 
-        if (n_e - self.entropy) < T or len(xtrain) < X:
+        if (self.entropy - n_e) < T:
+            print 'Change in entropy is %0.4f. Terminating.' % (self.entropy - n_e)
             self.is_spam = self.get_majority_label()
-        else:
-            lxtrain, lytrain, rxtrain, rytrain = self.splitData(xtrain, ytrain)
-            self.left_child = DecisionTree(lxtrain, lytrain, l_e)
-            self.right_child = DecisionTree(rxtrain, rytrain, r_e)
+            return
+        lxtrain, lytrain, rxtrain, rytrain = self.splitData()
+        if len(lxtrain) == 0 or len(rxtrain) == 0:
+            import pdb
+            pdb.set_trace()
+        self.left_child = DecisionTree(lxtrain, lytrain, l_e)
+        self.right_child = DecisionTree(rxtrain, rytrain, r_e)
+
+    def error_free_log(self, num):
+        err = numpy.seterr(divide='ignore', invalid='ignore')
+        lg = numpy.nan_to_num(numpy.log(num))
+        numpy.seterr(**err)
+        return lg
 
     def get_majority_label(self):
         ones = len(self.ytrain[self.ytrain == 1])
@@ -125,7 +164,7 @@ def main():
         sample = xtest[i]
         if tree.classify(sample) != ytest[i]:
             error += 1
-    print 'Error rate %s' % error / len(xtest)
+    print 'Error rate %0.4f' % (float(error) / len(xtest))
 
 
 if __name__ == "__main__":

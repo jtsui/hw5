@@ -27,8 +27,8 @@ class DecisionTree:
             if spam == 0 or spam == 1:
                 entropy = 0
             else:
-                entropy = spam * math.log(spam)
-                entropy += (1 - spam) * math.log(1 - spam)
+                entropy = spam * math.log(spam, 2)
+                entropy += (1 - spam) * math.log((1 - spam), 2)
                 entropy = entropy * -1.0
         self.xtrain = xtrain
         self.ytrain = ytrain
@@ -91,7 +91,7 @@ class DecisionTree:
 
     def error_free_log(self, num):
         err = numpy.seterr(divide='ignore', invalid='ignore')
-        lg = numpy.nan_to_num(numpy.log(num))
+        lg = numpy.nan_to_num(numpy.log2(num))
         numpy.seterr(**err)
         return lg
 

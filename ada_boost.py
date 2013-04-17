@@ -35,6 +35,7 @@ class DecisionTree:
         self.left_child = None
         self.right_child = None
         self.is_spam = None
+        self.weights = weights
 
         if len(xtrain) <= X or numpy.sum(ytrain) == len(ytrain) or numpy.sum(ytrain) == -len(ytrain):
             # print 'Number of points in node is %s. Terminating.' % len(xtrain)
@@ -100,8 +101,8 @@ class DecisionTree:
         return lg
 
     def get_majority_label(self):
-        ones = len(self.ytrain[self.ytrain == 1])
-        zeros = len(self.ytrain[self.ytrain == 0])
+        ones = sum(self.ytrain[self.ytrain == 1]*self.weights[self.ytrain == 1])
+        zeros = sum(self.ytrain[self.ytrain == -1]*self.weights[self.ytrain == -1])
         if ones > zeros:
             return 1
         elif zeros > ones:
@@ -141,7 +142,7 @@ def update_weights(current_weights, wrong_indices, alpha):
         factor = wrong_factor if i in wrong_indices else right_factor
         new_weights.append(current_weights[i] * factor)
     new_weights = numpy.array(new_weights)
-    return new_weights/numpy.linalg.norm(new_weights)
+    return new_weights/numpy.sum(new_weights)
 
 
 def main():
@@ -170,8 +171,8 @@ def main():
         for i in xrange(len(xtrain)):
             if tree.classify(xtrain[i]) != ytrain[i]:
                 wrong_indices.append(i)
-                error += 1.0
-        error = float(error) / len(xtrain)
+                error += weights[i]
+        #error = float(error) / len(xtrain)
         print 'Tree error %0.4f' % error
         trees.append(tree)
         alpha = 0.5 * math.log((1 - error)/error)
@@ -189,7 +190,7 @@ def main():
             error += 1
     error = float(error) / len(xtest)
     print 'T\tX\tError'
-    print '%s\t%s\t%0.4f' % (t_val, x_val, float(error) / len(xtest))
+    print '%s\t%s\t%0.4f' % (t_val, x_val, error)
 
 
 if __name__ == "__main__":

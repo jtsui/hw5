@@ -146,11 +146,13 @@ def main():
     feats = [15, 30, 45]
     Ts = [0.01, 0.001]
     Xs = [5, 10, 25]
-    results = ''
     combos = [x for x in itertools.product(ntrees, samples, feats, Ts, Xs)]
     bar = pbar(len(combos))
     bar.start()
     count = 0
+    f = open('results_forest.txt', 'wb')
+    f.write('error\tT\tX\tnum_trees\tsample_subset\tfeat_subset\n')
+    f.flush()
     for num_trees, sample_subset, feat_subset, T, X in combos:
         for i in xrange(num_trees):
             shuffled_xtrain, shuffled_ytrain = shuffle(xtrain, ytrain)
@@ -164,12 +166,12 @@ def main():
             if avg_prediction != ytest[i]:
                 error += 1
         error = float(error) / len(xtest)
-        results += '%0.4f\t%s\t%s\t%s\t\t%s\t\t%s\n' % (error, T, X, num_trees, sample_subset, feat_subset)
+        f.write('%0.4f\t%s\t%s\t%s\t\t%s\t\t%s\n' % (error, T, X, num_trees, sample_subset, feat_subset))
+        f.flush()
         count += 1
         bar.update(count)
     bar.finish()
-    print 'error\tT\tX\tnum_trees\tsample_subset\tfeat_subset\n' + results
-
+    f.close()
 
 if __name__ == "__main__":
     main()

@@ -86,9 +86,6 @@ class DecisionTree:
             self.is_spam = self.get_majority_label()
             return
         lxtrain, lytrain, rxtrain, rytrain = self.splitData()
-        if len(lxtrain) == 0 or len(rxtrain) == 0:
-            import pdb
-            pdb.set_trace()
         self.left_child = DecisionTree(lxtrain, lytrain, l_e, T, X)
         self.right_child = DecisionTree(rxtrain, rytrain, r_e, T, X)
 
@@ -117,30 +114,6 @@ class DecisionTree:
                 self.ytrain[numpy.array(left_indices)],
                 self.xtrain[numpy.array(right_indices)],
                 self.ytrain[numpy.array(right_indices)])
-
-    def child_entropy(self, indices):
-        labels = self.ytrain[indices]
-        if len(labels) == 0:
-            return 0
-        spam = float(sum(labels)) / len(labels)
-        if spam == 0 or spam == 1:
-            entropy = 0
-        else:
-            entropy = spam * math.log(spam)
-            entropy += (1 - spam) * math.log(1 - spam)
-            entropy = entropy * -1.0
-        return entropy
-
-    def get_entropy(self, feat, val):
-        '''
-        Calculates entropy: H(x) = Summation( P(x) * log(P(x)) ) for all x
-        '''
-        left_indices, right_indices = self.split(feat, val)
-        left_entropy = self.child_entropy(left_indices)
-        right_entropy = self.child_entropy(right_indices)
-        entropy = left_entropy * len(left_indices) / len(self.xtrain)
-        entropy += right_entropy * len(right_indices) / len(self.xtrain)
-        return left_entropy, right_entropy, entropy
 
     def classify(self, sample):
         '''

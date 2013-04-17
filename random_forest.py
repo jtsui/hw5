@@ -20,7 +20,7 @@ def pbar(size):
 
 class DecisionTree:
 
-    def __init__(self, xtrain, ytrain, entropy=None, T=0.01, X=20):
+    def __init__(self, xtrain, ytrain, entropy=None, T=0.01, X=20, feat_subset=20):
         if entropy is None:
             spam = float(numpy.sum(ytrain)) / len(ytrain)
             if spam == 0 or spam == 1:
@@ -36,15 +36,16 @@ class DecisionTree:
         self.right_child = None
         self.is_spam = None
 
-        if len(xtrain) < X or numpy.sum(ytrain) == len(ytrain) or numpy.sum(ytrain) == 0:
-            print 'Number of points in node is %s. Terminating.' % len(xtrain)
+        if len(xtrain) <= X or numpy.sum(ytrain) == len(ytrain) or numpy.sum(ytrain) == 0:
+            # print 'Number of points in node is %s. Terminating.' % len(xtrain)
             self.is_spam = self.get_majority_label()
             return
 
         entropies = []
-        bar = pbar(xtrain.shape[1])
-        bar.start()
-        for j in xrange(xtrain.shape[1]):
+        # bar = pbar(xtrain.shape[1])
+        # bar.start()
+        subset_of_features = numpy.random.permutation(range(xtrain.shape[1]))[:feat_subset]
+        for j in subset_of_features:
             xtrain_j_idx = xtrain[:, j].argsort()
             ytrain_j = ytrain[xtrain_j_idx]
             xtrain_j = xtrain[:, j][xtrain_j_idx]
@@ -71,22 +72,22 @@ class DecisionTree:
             entropies_j = (lenL/(lenL+lenR))*left_entropies+(lenR/(lenL+lenR))*right_entropies
             entropies += zip([j] * (len(buckets) - 1), [x for x, y in buckets][1:], list(
                 left_entropies), list(right_entropies), list(entropies_j))
-            bar.update(j)
-        bar.finish()
+            # bar.update(j)
+        # bar.finish()
+        if not entropies:
+            self.is_spam = self.get_majority_label()
+            return
         self.feat, self.val, l_e, r_e, n_e = min(entropies, key=itemgetter(4))
 
-        print 'New entropy is %0.4f.' % n_e
+        # print 'New entropy is %0.4f.' % n_e
 
         if (self.entropy - n_e) < T:
-            print 'Change in entropy is %0.4f. Terminating.' % (self.entropy - n_e)
+            # print 'Change in entropy is %0.4f. Terminating.' % (self.entropy - n_e)
             self.is_spam = self.get_majority_label()
             return
         lxtrain, lytrain, rxtrain, rytrain = self.splitData()
-        if len(lxtrain) == 0 or len(rxtrain) == 0:
-            import pdb
-            pdb.set_trace()
-        self.left_child = DecisionTree(lxtrain, lytrain, l_e)
-        self.right_child = DecisionTree(rxtrain, rytrain, r_e)
+        self.left_child = DecisionTree(lxtrain, lytrain, l_e, T, X, feat_subset)
+        self.right_child = DecisionTree(rxtrain, rytrain, r_e, T, X, feat_subset)
 
     def error_free_log(self, num):
         err = numpy.seterr(divide='ignore', invalid='ignore')
@@ -128,6 +129,16 @@ class DecisionTree:
             return self.is_spam
 
 
+def shuffle(xtrain, ytrain):
+    '''
+    Shuffles xtrain and ytrain and returns the tuple
+    '''
+    shuffle_indices = numpy.random.permutation(range(3065))
+    shuffled_xtrain = xtrain[shuffle_indices]
+    shuffled_ytrain = ytrain[shuffle_indices]
+    return shuffled_xtrain, shuffled_ytrain
+
+
 def main():
     data = scipy.io.loadmat('spamData.mat')
     xtrain = data['Xtrain']
@@ -137,16 +148,25 @@ def main():
     trees = []
 
     # Number of trees to make
-    num_trees = 10
+    num_trees = 100
+    sample_subset = 1000
+    feat_subset = 20
+    T = 0.01
+    X = 3
 
+    bar = pbar(num_trees)
+    bar.start()
     for i in xrange(num_trees):
-        trees.append(DecisionTree(xtrain, ytrain))
+        shuffled_xtrain, shuffled_ytrain = shuffle(xtrain, ytrain)
+        trees.append(DecisionTree(shuffled_xtrain[:sample_subset], shuffled_ytrain[:sample_subset], None, T, X, feat_subset))
+        bar.update(i)
+    bar.finish()
 
     error = 0
     for i in xrange(len(xtest)):
         sample = xtest[i]
         predictions = [tree.classify(sample) for tree in trees]
-        avg_prediction = round(sum(predictions)/len(predictions))
+        avg_prediction = round(float(sum(predictions))/len(predictions))
         if avg_prediction != ytest[i]:
             error += 1
     print 'Error rate %0.4f' % (float(error) / len(xtest))

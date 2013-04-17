@@ -6,6 +6,7 @@ import scipy.io
 from operator import itemgetter
 import progressbar
 from collections import Counter
+import itertools
 
 
 def pbar(size):
@@ -97,13 +98,7 @@ class DecisionTree:
 
     def get_majority_label(self):
         ones = len(self.ytrain[self.ytrain == 1])
-        zeros = len(self.ytrain[self.ytrain == 0])
-        if ones > zeros:
-            return True
-        elif zeros > ones:
-            return False
-        else:
-            return random.choice((True, False))
+        return float(ones)/len(self.ytrain)
 
     def split(self, feat, val):
         return self.xtrain[:, feat] < val, self.xtrain[:, feat] >= val
@@ -147,29 +142,34 @@ def main():
     ytest = data['ytest']
     trees = []
 
-    # Number of trees to make
-    num_trees = 100
-    sample_subset = 1000
-    feat_subset = 20
-    T = 0.01
-    X = 3
-
-    bar = pbar(num_trees)
+    ntrees = [25, 50, 100]
+    samples = [500, 1000, 2000]
+    feats = [15, 30, 45]
+    Ts = [0.01, 0.001]
+    Xs = [5, 10, 25]
+    results = ''
+    combos = [x for x in itertools.product(ntrees, samples, feats, Ts, Xs)]
+    bar = pbar(len(combos))
     bar.start()
-    for i in xrange(num_trees):
-        shuffled_xtrain, shuffled_ytrain = shuffle(xtrain, ytrain)
-        trees.append(DecisionTree(shuffled_xtrain[:sample_subset], shuffled_ytrain[:sample_subset], None, T, X, feat_subset))
-        bar.update(i)
+    count = 0
+    for num_trees, sample_subset, feat_subset, T, X in combos:
+        for i in xrange(num_trees):
+            shuffled_xtrain, shuffled_ytrain = shuffle(xtrain, ytrain)
+            trees.append(DecisionTree(shuffled_xtrain[:sample_subset], shuffled_ytrain[
+                         :sample_subset], None, T, X, feat_subset))
+        error = 0
+        for i in xrange(len(xtest)):
+            sample = xtest[i]
+            predictions = [tree.classify(sample) for tree in trees]
+            avg_prediction = round(float(sum(predictions))/len(predictions))
+            if avg_prediction != ytest[i]:
+                error += 1
+        error = float(error) / len(xtest)
+        results += '%0.4f\t%s\t%s\t%s\t\t%s\t\t%s\n' % (error, T, X, num_trees, sample_subset, feat_subset)
+        count += 1
+        bar.update(count)
     bar.finish()
-
-    error = 0
-    for i in xrange(len(xtest)):
-        sample = xtest[i]
-        predictions = [tree.classify(sample) for tree in trees]
-        avg_prediction = round(float(sum(predictions))/len(predictions))
-        if avg_prediction != ytest[i]:
-            error += 1
-    print 'Error rate %0.4f' % (float(error) / len(xtest))
+    print 'error\tT\tX\tnum_trees\tsample_subset\tfeat_subset\n' + results
 
 
 if __name__ == "__main__":

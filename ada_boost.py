@@ -20,7 +20,7 @@ def pbar(size):
 
 class DecisionTree:
 
-    def __init__(self, xtrain, ytrain, weights, entropy=None, T=0.01, X=3):
+    def __init__(self, xtrain, ytrain, weights, entropy=None, T=0.01, X=3, height=0):
         if entropy is None:
             spam = float(numpy.sum(ytrain.clip(0))) / len(ytrain)
             if spam == 0 or spam == 1:
@@ -36,6 +36,10 @@ class DecisionTree:
         self.right_child = None
         self.is_spam = None
         self.weights = weights
+
+        if height > 0:
+            self.is_spam = self.get_majority_label()
+            return
 
         if len(xtrain) <= X or numpy.sum(ytrain) == len(ytrain) or numpy.sum(ytrain) == -len(ytrain):
             # print 'Number of points in node is %s. Terminating.' % len(xtrain)
@@ -81,16 +85,15 @@ class DecisionTree:
             self.is_spam = self.get_majority_label()
             return
         self.feat, self.val, l_e, r_e, n_e = min(entropies, key=itemgetter(4))
-
         # print 'New entropy is %0.4f.' % n_e
         
         if (self.entropy - n_e) < T:
             #print 'Change in entropy is %0.4f. Terminating.' % (self.entropy - n_e)
             self.is_spam = self.get_majority_label()
             return
-        lxtrain, lytrain, rxtrain, rytrain = self.splitData()
-        self.left_child = DecisionTree(lxtrain, lytrain, weights, l_e, T, X)
-        self.right_child = DecisionTree(rxtrain, rytrain, weights, r_e, T, X)
+        lxtrain, lytrain, lweights, rxtrain, rytrain, rweights = self.splitData()
+        self.left_child = DecisionTree(lxtrain, lytrain, lweights, l_e, T, X, height + 1)
+        self.right_child = DecisionTree(rxtrain, rytrain, rweights, r_e, T, X, height + 1)
 
     def error_free_log(self, num):
         err = numpy.seterr(divide='ignore', invalid='ignore')
@@ -115,8 +118,10 @@ class DecisionTree:
         left_indices, right_indices = self.split(self.feat, self.val)
         return (self.xtrain[numpy.array(left_indices)],
                 self.ytrain[numpy.array(left_indices)],
+                self.weights[numpy.array(left_indices)],
                 self.xtrain[numpy.array(right_indices)],
-                self.ytrain[numpy.array(right_indices)])
+                self.ytrain[numpy.array(right_indices)],
+                self.weights[numpy.array(right_indices)])
 
     def classify(self, sample):
         '''
@@ -153,9 +158,9 @@ def main():
     ytest = data['ytest']
     ytest = ytest.astype(int)
     ytest = numpy.where(ytest == 1, ytest, -1)
-    iterations = 7
-    t_val = 0.2
-    x_val = 200
+    iterations = 50
+    t_val = 0
+    x_val = 0
     tree_weights = []
     trees = []
     weights = [1.0/len(ytrain)] * len(ytrain)
@@ -171,7 +176,7 @@ def main():
                 wrong_indices.append(i)
                 error += weights[i]
         #error = float(error) / len(xtrain)
-        print 'Tree error %0.4f' % error
+        print 'Tree error %0.4f, iteration %d' % (error, t)
         trees.append(tree)
         alpha = 0.5 * math.log((1 - error)/error)
         weights = update_weights(weights, wrong_indices, alpha)

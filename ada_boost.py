@@ -6,6 +6,7 @@ import scipy.io
 from operator import itemgetter
 import progressbar
 from collections import Counter
+import itertools
 
 
 def pbar(size):
@@ -20,7 +21,7 @@ def pbar(size):
 
 class DecisionTree:
 
-    def __init__(self, xtrain, ytrain, weights, entropy=None, T=0.01, X=3, height=0):
+    def __init__(self, xtrain, ytrain, weights, entropy=None, depth=1):
         if entropy is None:
             spam = float(numpy.sum(ytrain.clip(0))) / len(ytrain)
             if spam == 0 or spam == 1:
@@ -37,18 +38,16 @@ class DecisionTree:
         self.is_spam = None
         self.weights = weights
 
-        if height > 1:
+        if depth < 1:
             self.is_spam = self.get_majority_label()
             return
 
-        if len(xtrain) <= X or numpy.sum(ytrain) == len(ytrain) or numpy.sum(ytrain) == -len(ytrain):
+        if numpy.sum(ytrain) == len(ytrain) or numpy.sum(ytrain) == -len(ytrain):
             # print 'Number of points in node is %s. Terminating.' % len(xtrain)
             self.is_spam = self.get_majority_label()
             return
 
         entropies = []
-        # bar = pbar(xtrain.shape[1])
-        # bar.start()
         for j in xrange(xtrain.shape[1]):
             xtrain_j_idx = xtrain[:, j].argsort()
             ytrain_j = ytrain[xtrain_j_idx]
@@ -79,21 +78,16 @@ class DecisionTree:
             entropies_j = (lenL/(lenL+lenR))*left_entropies+(lenR/(lenL+lenR))*right_entropies
             entropies += zip([j] * (len(buckets) - 1), [x for x, y in buckets][1:], list(
                 left_entropies), list(right_entropies), list(entropies_j))
-            # bar.update(j)
-        # bar.finish()
+
         if not entropies:
             self.is_spam = self.get_majority_label()
             return
+
         self.feat, self.val, l_e, r_e, n_e = min(entropies, key=itemgetter(4))
         # print 'New entropy is %0.4f.' % n_e
-        
-        if (self.entropy - n_e) < T:
-            #print 'Change in entropy is %0.4f. Terminating.' % (self.entropy - n_e)
-            self.is_spam = self.get_majority_label()
-            return
         lxtrain, lytrain, lweights, rxtrain, rytrain, rweights = self.splitData()
-        self.left_child = DecisionTree(lxtrain, lytrain, lweights, l_e, T, X, height + 1)
-        self.right_child = DecisionTree(rxtrain, rytrain, rweights, r_e, T, X, height + 1)
+        self.left_child = DecisionTree(lxtrain, lytrain, lweights, l_e, depth - 1)
+        self.right_child = DecisionTree(rxtrain, rytrain, rweights, r_e, depth - 1)
 
     def error_free_log(self, num):
         err = numpy.seterr(divide='ignore', invalid='ignore')
@@ -158,42 +152,51 @@ def main():
     ytest = data['ytest']
     ytest = ytest.astype(int)
     ytest = numpy.where(ytest == 1, ytest, -1)
-    iterations = 50
-    t_val = -10
-    x_val = 0
-    tree_weights = []
-    trees = []
-    weights = [1.0/len(ytrain)] * len(ytrain)
-    weights = numpy.array([weights]).transpose()
-    bar = pbar(iterations)
-    bar.start()
-    for t in range(iterations):
-        tree = DecisionTree(xtrain, ytrain, weights, None, t_val, x_val)
-        wrong_indices = []
-        error = 0.0
-        for i in xrange(len(xtrain)):
-            if tree.classify(xtrain[i]) != ytrain[i]:
-                wrong_indices.append(i)
-                error += weights[i]
-        #error = float(error) / len(xtrain)
-        print 'Tree error %0.4f, iteration %d' % (error, t)
-        trees.append(tree)
-        alpha = 0.5 * math.log((1 - error)/error)
-        weights = update_weights(weights, wrong_indices, alpha)
-        tree_weights.append(alpha)
-        bar.update(t)
-    bar.finish()
 
-    error = 0
-    for i in xrange(len(xtest)):
-        sample = xtest[i]
-        predictions = [t.classify(sample) * w for t, w in zip(trees, tree_weights)]
-        prediction = 1 if sum(predictions) > 0 else -1
-        if prediction != ytest[i]:
-            error += 1
-    error = float(error) / len(xtest)
-    print 'T\tX\tError'
-    print '%s\t%s\t%0.4f' % (t_val, x_val, error)
+    # hyperparameters
+    iterations = [50, 100, 500]
+    depths = [1, 2, 3]
+
+    combos = [x for x in itertools.product(iterations, depths)]
+    bar = pbar(len(combos))
+    bar.start()
+    f = open('results_boost.txt', 'wb')
+    f.write('Error\tDepth\tIterations\n')
+    f.flush()
+    count = 0
+    for iteration, depth in combos:
+        tree_weights = []
+        trees = []
+        weights = [1.0/len(ytrain)] * len(ytrain)
+        weights = numpy.array([weights]).transpose()
+        for t in range(iteration):
+            tree = DecisionTree(xtrain, ytrain, weights, None, depth)
+            wrong_indices = []
+            error = 0.0
+            for i in xrange(len(xtrain)):
+                if tree.classify(xtrain[i]) != ytrain[i]:
+                    wrong_indices.append(i)
+                    error += weights[i]
+            # print 'Tree error %0.4f, iteration %d' % (error, t)
+            trees.append(tree)
+            alpha = 0.5 * math.log((1 - error)/error)
+            weights = update_weights(weights, wrong_indices, alpha)
+            tree_weights.append(alpha)
+
+        error = 0
+        for i in xrange(len(xtest)):
+            sample = xtest[i]
+            predictions = [t.classify(sample) * w for t, w in zip(trees, tree_weights)]
+            prediction = 1 if sum(predictions) > 0 else -1
+            if prediction != ytest[i]:
+                error += 1
+        error = float(error) / len(xtest)
+        f.write('%0.4f\t%s\t%s\n' % (error, depth, iteration))
+        f.flush()
+        count += 1
+        bar.update(count)
+    bar.finish()
+    f.close()
 
 
 if __name__ == "__main__":

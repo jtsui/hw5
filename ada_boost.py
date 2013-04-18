@@ -58,11 +58,9 @@ class DecisionTree:
                 right = ytrain_j[so_far:]
                 left_weight = weights_j[:so_far]
                 right_weight = weights_j[so_far:]
-                left_spam_idxs = left == 1
-                right_spam_idxs = right == 1
-                sumL.append(numpy.sum(left_weight[left_spam_idxs]))
+                sumL.append(numpy.sum(left_weight[left == 1]))
                 lenL.append(float(numpy.sum(left_weight)))
-                sumR.append(numpy.sum(right_weight[right_spam_idxs]))
+                sumR.append(numpy.sum(right_weight[right == 1]))
                 lenR.append(float(numpy.sum(right_weight)))
                 so_far += buckets[i][1]
 
@@ -85,7 +83,7 @@ class DecisionTree:
         self.feat, self.val, l_e, r_e, n_e = min(entropies, key=itemgetter(4))
 
         # print 'New entropy is %0.4f.' % n_e
-
+        
         if (self.entropy - n_e) < T:
             #print 'Change in entropy is %0.4f. Terminating.' % (self.entropy - n_e)
             self.is_spam = self.get_majority_label()
@@ -101,8 +99,8 @@ class DecisionTree:
         return lg
 
     def get_majority_label(self):
-        ones = sum(self.weights[self.ytrain == 1])
-        zeros = sum(self.weights[self.ytrain == -1])
+        ones = numpy.sum(self.weights[self.ytrain == 1])
+        zeros = numpy.sum(self.weights[self.ytrain == -1])
         if ones > zeros:
             return 1
         elif zeros > ones:
@@ -157,7 +155,7 @@ def main():
     ytest = numpy.where(ytest == 1, ytest, -1)
     iterations = 7
     t_val = 0.2
-    x_val = 100
+    x_val = 200
     tree_weights = []
     trees = []
     weights = [1.0/len(ytrain)] * len(ytrain)

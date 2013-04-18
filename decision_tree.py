@@ -135,8 +135,11 @@ def main():
     ytrain = data['ytrain']
     xtest = data['Xtest']
     ytest = data['ytest']
+
+    # hyperparameters
     t_values = [0.1, 0.01, 0.001, 0.0001]
     x_values = [1, 3, 5, 10, 25, 50, 100]
+
     print 'T\tX\tError'
     for t, x in itertools.product(t_values, x_values):
         tree = DecisionTree(xtrain, ytrain, None, t, x)

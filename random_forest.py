@@ -141,11 +141,13 @@ def main():
     ytest = data['ytest']
     trees = []
 
+    # hyperparameters
     ntrees = [25, 50, 100]
     samples = [500, 1000, 2000]
     feats = [15, 30, 45]
     Ts = [0.01, 0.001]
     Xs = [5, 10, 25]
+
     combos = [x for x in itertools.product(ntrees, samples, feats, Ts, Xs)]
     bar = pbar(len(combos))
     bar.start()

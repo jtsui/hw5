@@ -37,7 +37,7 @@ class DecisionTree:
         self.is_spam = None
         self.weights = weights
 
-        if height > 0:
+        if height > 1:
             self.is_spam = self.get_majority_label()
             return
 
@@ -159,7 +159,7 @@ def main():
     ytest = ytest.astype(int)
     ytest = numpy.where(ytest == 1, ytest, -1)
     iterations = 50
-    t_val = 0
+    t_val = -10
     x_val = 0
     tree_weights = []
     trees = []
